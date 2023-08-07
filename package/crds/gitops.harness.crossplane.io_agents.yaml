@@ -75,6 +75,8 @@ spec:
                     type: string
                   identifier:
                     type: string
+                  name:
+                    type: string
                   orgIdentifier:
                     description: Organization Identifier for the Entity.
                     type: string
@@ -85,8 +87,6 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
-                required:
-                - identifier
                 type: object
               managementPolicy:
                 default: FullControl
@@ -279,6 +279,12 @@ spec:
             properties:
               atProvider:
                 description: AgentObservation are the observable fields of a Agent.
+                properties:
+                  state:
+                    description: Health *nextgen.V1AgentHealth `json:"health,omitempty"`
+                    type: string
+                required:
+                - state
                 type: object
               conditions:
                 description: Conditions of the resource.

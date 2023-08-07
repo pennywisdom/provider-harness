@@ -19,9 +19,13 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/harness/harness-go-sdk/harness/nextgen"
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -51,25 +55,28 @@ const (
 
 // A HarnessService does nothing.
 type HarnessService struct {
-	apiClient *nextgen.APIClient
+	*nextgen.APIClient
 }
 
 var newHarnessService = func(creds []byte) (*HarnessService, error) {
-	client := nextgen.NewAPIClient(&nextgen.Configuration{
-		AccountId: "",
-		ApiKey:    "",
-		// BasePath:      "",
-		// Host:          "",
-		// Scheme:        "",
-		// DefaultHeader: map[string]string{},
-		// UserAgent:     "",
-		// HTTPClient:    &retryablehttp.Client{},
-		// Logger:        &logrus.Logger{},
-		DebugLogging: false,
-	})
+	config := nextgen.NewConfiguration()
+	config.BasePath = "https://app.harness.io"
+
+	config.HTTPClient = &retryablehttp.Client{
+		RetryMax:     10,
+		RetryWaitMin: 5 * time.Second,
+		RetryWaitMax: 10 * time.Second,
+		HTTPClient: &http.Client{
+			Timeout: 10 * time.Second,
+		},
+		Backoff:    retryablehttp.DefaultBackoff,
+		CheckRetry: retryablehttp.DefaultRetryPolicy,
+	}
+
+	client := nextgen.NewAPIClient(config)
 
 	return &HarnessService{
-		apiClient: client,
+		client,
 	}, nil
 }
 
@@ -158,14 +165,36 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		return managed.ExternalObservation{}, errors.New(errNotAgent)
 	}
 
-	// These fmt statements should be removed in the real implementation.
-	// fmt.Printf("Observing: %+v", cr)
-	agent, response, _ := c.service.apiClient.AgentApi.AgentServiceForServerGet(
-		ctx,
-		cr.Spec.ForProvider.Identifier,
-		cr.Spec.ForProvider.AccountIdentifier, &nextgen.AgentsApiAgentServiceForServerGetOpts{})
+	identifier := ""
+	if cr.Spec.ForProvider.Identifier != nil {
+		identifier = *cr.Spec.ForProvider.Identifier
+	}
 
-	if response.StatusCode == http.StatusNotFound {
+	if cr.Spec.ForProvider.AccountIdentifier == nil {
+		log.Fatalln("AccountIndentifier is required")
+	}
+
+	ctx = context.WithValue(ctx, nextgen.ContextAPIKey, nextgen.APIKey{Key: os.Getenv("HARNESS_API_KEY")})
+
+	agent, response, err := c.service.AgentApi.AgentServiceForServerGet(
+		ctx,
+		identifier,
+		*cr.Spec.ForProvider.AccountIdentifier, nil)
+	defer func() {
+		if response != nil {
+			err = response.Body.Close()
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}()
+
+	// log.Printf("%v\n", err)
+	// log.Printf("%+v", response)
+
+	// if response == nil || response.StatusCode == http.StatusNotFound {
+	if err != nil || (response != nil && response.StatusCode == http.StatusNotFound) {
+		//nolint:nilerr
 		return managed.ExternalObservation{
 			ResourceExists: false,
 		}, nil
@@ -188,7 +217,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 		// Return any details that may be required to connect to the external
 		// resource. These will be stored as the connection secret.
-		ConnectionDetails: managed.ConnectionDetails{},
+		// ConnectionDetails: managed.ConnectionDetails{},
 	}, nil
 }
 
@@ -198,24 +227,76 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalCreation{}, errors.New(errNotAgent)
 	}
 
-	agent, response, err := c.service.apiClient.AgentApi.AgentServiceForServerCreate(
+	accountIdentifier := ""
+	if cr.Spec.ForProvider.AccountIdentifier != nil {
+		accountIdentifier = *cr.Spec.ForProvider.AccountIdentifier
+		log.Printf("%s\n", accountIdentifier)
+	}
+
+	projectIndentifier := ""
+	if cr.Spec.ForProvider.ProjectIdentifier != nil {
+		projectIndentifier = *cr.Spec.ForProvider.ProjectIdentifier
+		log.Printf("%s\n", projectIndentifier)
+	}
+
+	orgIdentifier := ""
+	if cr.Spec.ForProvider.OrgIdentifier != nil {
+		orgIdentifier = *cr.Spec.ForProvider.OrgIdentifier
+		log.Printf("%s\n", orgIdentifier)
+	}
+
+	description := ""
+	if cr.Spec.ForProvider.Description != nil {
+		description = *cr.Spec.ForProvider.Description
+		log.Printf("%s\n", description)
+	}
+
+	name := cr.GetObjectMeta().GetName()
+	ctx = context.WithValue(ctx, nextgen.ContextAPIKey, nextgen.APIKey{Key: os.Getenv("HARNESS_API_KEY")})
+	agent, response, err := c.service.AgentApi.AgentServiceForServerCreate(
 		ctx,
 		nextgen.V1Agent{
-			AccountIdentifier: "",
-			ProjectIdentifier: "",
-			OrgIdentifier:     "",
+			AccountIdentifier: accountIdentifier,
+			ProjectIdentifier: projectIndentifier,
+			OrgIdentifier:     orgIdentifier,
 			Identifier:        "",
-			Name:              "",
-			// Metadata:          &nextgen.V1AgentMetadata{},
-			Description: "",
-			// Type_:             &"",
+			Name:              name,
+			Metadata: &nextgen.V1AgentMetadata{
+				Namespace:        "harness",
+				HighAvailability: true,
+				// DeployedApplicationCount: 0,
+				// ExistingInstallation:     false,
+				MappedProjects: &nextgen.Servicev1AppProjectMapping{},
+			},
+			Description: description,
+			// Type_:       &nextgen.MANAGED_ARGO_PROVIDER_V1AgentType,
+			// CreatedAt:         &nextgen.V1Time{
+			// 	Seconds: "",
+			// 	Nanos:   0,
+			// },
+			// LastModifiedAt:    &nextgen.V1Time{},
+			// Tags: map[string]string{},
+			// Health:            &nextgen.V1AgentHealth{},
+			// Credentials:       &nextgen.V1AgentCredentials{},
+			// Version:           &nextgen.V1SemanticVersion{},
+			// UpgradeAvailable:  false,
+			// Scope:             &"",
 		})
+	defer func() {
+		if response != nil {
+			err := response.Body.Close()
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}()
+
 	if err != nil {
 		return managed.ExternalCreation{}, err
 	}
-	if response.StatusCode != http.StatusCreated {
-		return managed.ExternalCreation{}, errors.Errorf("Agent could not be created status: %s, status code %d", response.Status, response.StatusCode)
-	}
+	// if response.StatusCode != http.StatusCreated {
+	// 	return managed.ExternalCreation{}, errors.Errorf("Agent could not be created status: %s, status code %d", response.Status, response.StatusCode)
+	// }
 
 	cr.Status.AtProvider.State = string(*agent.Health.HarnessGitopsAgent.Status)
 

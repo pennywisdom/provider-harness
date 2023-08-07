@@ -7,6 +7,7 @@ require (
 	github.com/crossplane/crossplane-tools v0.0.0-20230327091744-4236bf732aa5
 	github.com/google/go-cmp v0.5.9
 	github.com/harness/harness-go-sdk v0.3.41
+	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/pkg/errors v0.9.1
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	k8s.io/apimachinery v0.26.3
@@ -49,7 +50,6 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-plugin v1.4.3 // indirect
-	github.com/hashicorp/go-retryablehttp v0.7.1 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/go-secure-stdlib/mlock v0.1.1 // indirect
 	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.1 // indirect

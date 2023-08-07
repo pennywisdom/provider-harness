@@ -28,22 +28,28 @@ import (
 // AgentParameters are the configurable fields of a Agent.
 type AgentParameters struct {
 	// Account Identifier for the Entity.
-	AccountIdentifier string `json:"accountIdentifier,omitempty"`
+	// +optional
+	AccountIdentifier *string `json:"accountIdentifier,omitempty"`
 	// Project Identifier for the Entity.
-	ProjectIdentifier string `json:"projectIdentifier,omitempty"`
+	// +optional
+	ProjectIdentifier *string `json:"projectIdentifier,omitempty"`
 	// Organization Identifier for the Entity.
-	OrgIdentifier string `json:"orgIdentifier,omitempty"`
 	// +optional
-	Description string `json:"description,omitempty"`
+	OrgIdentifier *string `json:"orgIdentifier,omitempty"`
 	// +optional
-	Tags       map[string]string `json:"tags,omitempty"`
-	Identifier string            `json:"identifier"`
+	Description *string `json:"description,omitempty"`
+	// +optional
+	Tags *map[string]string `json:"tags,omitempty"`
+	// +optional
+	Name *string `json:"name,omitempty"`
+	// +optional
+	Identifier *string `json:"identifier,omitempty"`
 }
 
 // AgentObservation are the observable fields of a Agent.
 type AgentObservation struct {
 	// Health *nextgen.V1AgentHealth `json:"health,omitempty"`
-	State string `json:state`
+	State string `json:"state"`
 }
 
 // A AgentSpec defines the desired state of a Agent.
