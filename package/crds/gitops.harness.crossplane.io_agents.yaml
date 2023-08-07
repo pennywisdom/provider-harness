@@ -5,18 +5,18 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.11.3
   creationTimestamp: null
-  name: mytypes.sample.harness.crossplane.io
+  name: agents.gitops.harness.crossplane.io
 spec:
-  group: sample.harness.crossplane.io
+  group: gitops.harness.crossplane.io
   names:
     categories:
     - crossplane
     - managed
     - harness
-    kind: MyType
-    listKind: MyTypeList
-    plural: mytypes
-    singular: mytype
+    kind: Agent
+    listKind: AgentList
+    plural: agents
+    singular: agent
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -35,7 +35,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: A MyType is an example API type.
+        description: A Agent is an example API type.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -50,7 +50,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: A MyTypeSpec defines the desired state of a MyType.
+            description: A AgentSpec defines the desired state of a Agent.
             properties:
               deletionPolicy:
                 default: Delete
@@ -66,12 +66,27 @@ spec:
                 - Delete
                 type: string
               forProvider:
-                description: MyTypeParameters are the configurable fields of a MyType.
+                description: AgentParameters are the configurable fields of a Agent.
                 properties:
-                  configurableField:
+                  accountIdentifier:
+                    description: Account Identifier for the Entity.
                     type: string
+                  description:
+                    type: string
+                  identifier:
+                    type: string
+                  orgIdentifier:
+                    description: Organization Identifier for the Entity.
+                    type: string
+                  projectIdentifier:
+                    description: Project Identifier for the Entity.
+                    type: string
+                  tags:
+                    additionalProperties:
+                      type: string
+                    type: object
                 required:
-                - configurableField
+                - identifier
                 type: object
               managementPolicy:
                 default: FullControl
@@ -260,17 +275,10 @@ spec:
             - forProvider
             type: object
           status:
-            description: A MyTypeStatus represents the observed state of a MyType.
+            description: A AgentStatus represents the observed state of a Agent.
             properties:
               atProvider:
-                description: MyTypeObservation are the observable fields of a MyType.
-                properties:
-                  configurableField:
-                    type: string
-                  observableField:
-                    type: string
-                required:
-                - configurableField
+                description: AgentObservation are the observable fields of a Agent.
                 type: object
               conditions:
                 description: Conditions of the resource.

@@ -20,6 +20,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/controller"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/crossplane/provider-harness/internal/controller/agent"
 	"github.com/crossplane/provider-harness/internal/controller/config"
 )
 
@@ -28,6 +29,7 @@ import (
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	for _, setup := range []func(ctrl.Manager, controller.Options) error{
 		config.Setup,
+		agent.Setup,
 	} {
 		if err := setup(mgr, o); err != nil {
 			return err
