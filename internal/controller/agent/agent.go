@@ -19,6 +19,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/harness/harness-go-sdk/harness/nextgen"
 	"github.com/pkg/errors"
@@ -26,6 +27,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/connection"
 	"github.com/crossplane/crossplane-runtime/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/pkg/event"
@@ -157,8 +159,21 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}
 
 	// These fmt statements should be removed in the real implementation.
-	fmt.Printf("Observing: %+v", cr)
-	// agent, err := c.service.apiClient.AgentApi.AgentServiceForServerGet(ctx, cr.Spec.For)
+	// fmt.Printf("Observing: %+v", cr)
+	agent, response, _ := c.service.apiClient.AgentApi.AgentServiceForServerGet(
+		ctx,
+		cr.Spec.ForProvider.Identifier,
+		cr.Spec.ForProvider.AccountIdentifier, &nextgen.AgentsApiAgentServiceForServerGetOpts{})
+
+	if response.StatusCode == http.StatusNotFound {
+		return managed.ExternalObservation{
+			ResourceExists: false,
+		}, nil
+	}
+
+	if *agent.Health.HarnessGitopsAgent.Status == nextgen.HEALTHY_Servicev1HealthStatus {
+		cr.Status.SetConditions(xpv1.Available())
+	}
 
 	return managed.ExternalObservation{
 		// Return false when the external resource does not exist. This lets
@@ -183,7 +198,26 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalCreation{}, errors.New(errNotAgent)
 	}
 
-	fmt.Printf("Creating: %+v", cr)
+	agent, response, err := c.service.apiClient.AgentApi.AgentServiceForServerCreate(
+		ctx,
+		nextgen.V1Agent{
+			AccountIdentifier: "",
+			ProjectIdentifier: "",
+			OrgIdentifier:     "",
+			Identifier:        "",
+			Name:              "",
+			// Metadata:          &nextgen.V1AgentMetadata{},
+			Description: "",
+			// Type_:             &"",
+		})
+	if err != nil {
+		return managed.ExternalCreation{}, err
+	}
+	if response.StatusCode != http.StatusCreated {
+		return managed.ExternalCreation{}, errors.Errorf("Agent could not be created status: %s, status code %d", response.Status, response.StatusCode)
+	}
+
+	cr.Status.AtProvider.State = string(*agent.Health.HarnessGitopsAgent.Status)
 
 	return managed.ExternalCreation{
 		// Optionally return any details that may be required to connect to the
@@ -193,18 +227,21 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
-	cr, ok := mg.(*v1alpha1.Agent)
-	if !ok {
-		return managed.ExternalUpdate{}, errors.New(errNotAgent)
-	}
+	// No update required?
+	return managed.ExternalUpdate{}, nil
 
-	fmt.Printf("Updating: %+v", cr)
+	// cr, ok := mg.(*v1alpha1.Agent)
+	// if !ok {
+	// 	return managed.ExternalUpdate{}, errors.New(errNotAgent)
+	// }
 
-	return managed.ExternalUpdate{
-		// Optionally return any details that may be required to connect to the
-		// external resource. These will be stored as the connection secret.
-		ConnectionDetails: managed.ConnectionDetails{},
-	}, nil
+	// fmt.Printf("Updating: %+v", cr)
+
+	// return managed.ExternalUpdate{
+	// 	// Optionally return any details that may be required to connect to the
+	// 	// external resource. These will be stored as the connection secret.
+	// 	ConnectionDetails: managed.ConnectionDetails{},
+	// }, nil
 }
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) error {

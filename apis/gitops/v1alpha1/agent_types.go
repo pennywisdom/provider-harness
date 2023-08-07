@@ -43,6 +43,7 @@ type AgentParameters struct {
 // AgentObservation are the observable fields of a Agent.
 type AgentObservation struct {
 	// Health *nextgen.V1AgentHealth `json:"health,omitempty"`
+	State string `json:state`
 }
 
 // A AgentSpec defines the desired state of a Agent.
